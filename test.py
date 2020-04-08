@@ -13,15 +13,23 @@ from data import VOCAnnotationTransform, VOCDetection, BaseTransform, VOC_CLASSE
 import torch.utils.data as data
 from ssd import build_ssd
 
+import cv2
+font = cv2.FONT_HERSHEY_SIMPLEX  # 指定字体
+
 parser = argparse.ArgumentParser(description='Single Shot MultiBox Detection')
+# 模型路径
 parser.add_argument('--trained_model', default='weights/ssd_300_VOC0712.pth',
                     type=str, help='Trained state_dict file path to open')
+# 结果保存的路径                    
 parser.add_argument('--save_folder', default='eval/', type=str,
                     help='Dir to save results')
+# 阈值                    
 parser.add_argument('--visual_threshold', default=0.6, type=float,
                     help='Final confidence threshold')
-parser.add_argument('--cuda', default=True, type=bool,
+# 是否有 GPU                   
+parser.add_argument('--cuda', default=False, type=bool,
                     help='Use cuda to train model')
+# 数据集地址                    
 parser.add_argument('--voc_root', default=VOC_ROOT, help='Location of VOC root directory')
 parser.add_argument('-f', default=None, type=str, help="Dummy arg so we can load in Jupyter Notebooks")
 args = parser.parse_args()
@@ -36,6 +44,14 @@ if not os.path.exists(args.save_folder):
 
 
 def test_net(save_folder, net, cuda, testset, transform, thresh):
+    """
+    save_folder: 结果保存的路径
+    net: 模型路径
+    cuda：是否有 GPU
+    testset：数据集
+    transform
+    thresh
+    """
     # dump predictions and assoc. ground truth to text file for now
     filename = save_folder+'test1.txt'
     num_images = len(testset)
@@ -74,24 +90,32 @@ def test_net(save_folder, net, cuda, testset, transform, thresh):
                     f.write(str(pred_num)+' label: '+label_name+' score: ' +
                             str(score) + ' '+' || '.join(str(c) for c in coords) + '\n')
                 j += 1
+            
+                img = cv2.rectangle(img, (pt[0], pt[1]), (pt[2], pt[3]), (0, 255, 0), 3)
+                cv2.putText(img, label_name, (pt[0], pt[1]), font, 1, (255, 255, 255), 1, cv2.LINE_AA)  
+                # 绘制的图像，文字，文字左下角的坐标,字体，字体颜色，厚度等
+        cv2.imwrite(save_folder+img_id+".jpg", img)
 
 
 def test_voc():
     # load net
-    num_classes = len(VOC_CLASSES) + 1 # +1 background
-    net = build_ssd('test', 300, num_classes) # initialize SSD
+    num_classes = len(VOC_CLASSES) + 1 # +1 background    
+    net = build_ssd('test', 300, num_classes) # initialize SSD   
     net.load_state_dict(torch.load(args.trained_model))
     net.eval()
     print('Finished loading model!')
     # load data
-    testset = VOCDetection(args.voc_root, [('2007', 'test')], None, VOCAnnotationTransform())
+    testset = VOCDetection(args.voc_root, [('2007', 'test_mini')], None, VOCAnnotationTransform())
     if args.cuda:
         net = net.cuda()
         cudnn.benchmark = True
     # evaluation
+    
     test_net(args.save_folder, net, args.cuda, testset,
              BaseTransform(net.size, (104, 117, 123)),
              thresh=args.visual_threshold)
-
+    
+    
 if __name__ == '__main__':
     test_voc()
+    

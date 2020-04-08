@@ -176,12 +176,14 @@ def nms(boxes, scores, overlap=0.5, top_k=200):
     """Apply non-maximum suppression at test time to avoid detecting too many
     overlapping bounding boxes for a given object.
     Args:
-        boxes: (tensor) The location preds for the img, Shape: [num_priors,4].
-        scores: (tensor) The class predscores for the img, Shape:[num_priors].
-        overlap: (float) The overlap thresh for suppressing unnecessary boxes.
-        top_k: (int) The Maximum number of box preds to consider.
+        boxes: (tensor) The location preds for the img, Shape: [num_priors,4]. 预测出的box, shape[M,4]
+        scores: (tensor) The class predscores for the img, Shape:[num_priors].  预测出的置信度，shape[M]
+        overlap: (float) The overlap thresh for suppressing unnecessary boxes.  阈值
+        top_k: (int) The Maximum number of box preds to consider. 要考虑的box的最大个数
     Return:
         The indices of the kept boxes with respect to num_priors.
+        keep: nms筛选后的box的新的index数组
+        count: 保留下来box的个数
     """
 
     keep = scores.new(scores.size(0)).zero_().long()
@@ -191,10 +193,10 @@ def nms(boxes, scores, overlap=0.5, top_k=200):
     y1 = boxes[:, 1]
     x2 = boxes[:, 2]
     y2 = boxes[:, 3]
-    area = torch.mul(x2 - x1, y2 - y1)
-    v, idx = scores.sort(0)  # sort in ascending order
+    area = torch.mul(x2 - x1, y2 - y1) # 面积,shape[M]
+    v, idx = scores.sort(0)  # sort in ascending order # 升序排列 scores 的值大小
     # I = I[v >= 0.01]
-    idx = idx[-top_k:]  # indices of the top-k largest vals
+    idx = idx[-top_k:]  # indices of the top-k largest vals   # 取前top_k个进行nms
     xx1 = boxes.new()
     yy1 = boxes.new()
     xx2 = boxes.new()
@@ -205,7 +207,7 @@ def nms(boxes, scores, overlap=0.5, top_k=200):
     # keep = torch.Tensor()
     count = 0
     while idx.numel() > 0:
-        i = idx[-1]  # index of current largest val
+        i = idx[-1]  # index of current largest val 分数最大值的索引
         # keep.append(i)
         keep[count] = i
         count += 1
@@ -218,7 +220,7 @@ def nms(boxes, scores, overlap=0.5, top_k=200):
         torch.index_select(x2, 0, idx, out=xx2)
         torch.index_select(y2, 0, idx, out=yy2)
         # store element-wise max with next highest score
-        xx1 = torch.clamp(xx1, min=x1[i])
+        xx1 = torch.clamp(xx1, min=x1[i])  # torch.clamp (min, max)： 设置上下限
         yy1 = torch.clamp(yy1, min=y1[i])
         xx2 = torch.clamp(xx2, max=x2[i])
         yy2 = torch.clamp(yy2, max=y2[i])
@@ -235,5 +237,5 @@ def nms(boxes, scores, overlap=0.5, top_k=200):
         union = (rem_areas - inter) + area[i]
         IoU = inter/union  # store result in iou
         # keep only elements with an IoU <= overlap
-        idx = idx[IoU.le(overlap)]
+        idx = idx[IoU.le(overlap)]  # tensor.le (x)： 返回 tensor<=x 的判断
     return keep, count

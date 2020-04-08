@@ -18,8 +18,8 @@ import argparse
 
 def str2bool(v):
     return v.lower() in ("yes", "true", "t", "1")
-
-
+    
+    
 parser = argparse.ArgumentParser(
     description='Single Shot MultiBox Detector Training With Pytorch')
 train_set = parser.add_mutually_exclusive_group()
@@ -37,7 +37,7 @@ parser.add_argument('--start_iter', default=0, type=int,
                     help='Resume training at this iter')
 parser.add_argument('--num_workers', default=4, type=int,
                     help='Number of workers used in dataloading')
-parser.add_argument('--cuda', default=True, type=str2bool,
+parser.add_argument('--cuda', default=False, type=str2bool,
                     help='Use CUDA to train model')
 parser.add_argument('--lr', '--learning-rate', default=1e-3, type=float,
                     help='initial learning rate')
@@ -64,6 +64,7 @@ if torch.cuda.is_available():
 else:
     torch.set_default_tensor_type('torch.FloatTensor')
 
+# 创建文件夹保存模型    
 if not os.path.exists(args.save_folder):
     os.mkdir(args.save_folder)
 
@@ -85,13 +86,14 @@ def train():
             parser.error('Must specify dataset if specifying dataset_root')
         cfg = voc
         dataset = VOCDetection(root=args.dataset_root,
+                               image_sets=[('2007', 'trainval')],  # 只使用 VOC2007
                                transform=SSDAugmentation(cfg['min_dim'],
                                                          MEANS))
 
     if args.visdom:
         import visdom
         viz = visdom.Visdom()
-
+    
     ssd_net = build_ssd('train', cfg['min_dim'], cfg['num_classes'])
     net = ssd_net
 
@@ -119,8 +121,15 @@ def train():
 
     optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.momentum,
                           weight_decay=args.weight_decay)
-    criterion = MultiBoxLoss(cfg['num_classes'], 0.5, True, 0, True, 3, 0.5,
-                             False, args.cuda)
+    criterion = MultiBoxLoss(num_classes=cfg['num_classes'], 
+                             overlap_thresh=0.5, 
+                             prior_for_matching=True, 
+                             bkg_label=0, 
+                             neg_mining=True, 
+                             neg_pos=3, 
+                             neg_overlap=0.5,
+                             encode_target=False, 
+                             use_gpu=args.cuda)
 
     net.train()
     # loss counters
@@ -142,7 +151,8 @@ def train():
         iter_plot = create_vis_plot('Iteration', 'Loss', vis_title, vis_legend)
         epoch_plot = create_vis_plot('Epoch', 'Loss', vis_title, vis_legend)
 
-    data_loader = data.DataLoader(dataset, args.batch_size,
+    data_loader = data.DataLoader(dataset, 
+                                  args.batch_size,
                                   num_workers=args.num_workers,
                                   shuffle=True, collate_fn=detection_collate,
                                   pin_memory=True)

@@ -23,10 +23,10 @@ class MultiBoxLoss(nn.Module):
         Where, Lconf is the CrossEntropy Loss and Lloc is the SmoothL1 Loss
         weighted by α which is set to 1 by cross val.
         Args:
-            c: class confidences,
-            l: predicted boxes,
-            g: ground truth boxes
-            N: number of matched default boxes
+            c: class confidences, 类别置信度预测值
+            l: predicted boxes, 先验框的所对应边界框的位置预测值
+            g: ground truth boxes  ground truth 的位置参数
+            N: number of matched default boxes 先验框的正样本数量；
         See: https://arxiv.org/pdf/1512.02325.pdf for more details.
     """
 
@@ -58,18 +58,21 @@ class MultiBoxLoss(nn.Module):
                 shape: [batch_size,num_objs,5] (last idx is the label).
         """
         loc_data, conf_data, priors = predictions
-        num = loc_data.size(0)
+        num = loc_data.size(0)  # batch
         priors = priors[:loc_data.size(1), :]
-        num_priors = (priors.size(0))
+        num_priors = (priors.size(0)) # 先验框个数
         num_classes = self.num_classes
 
         # match priors (default boxes) and ground truth boxes
+        # 获取匹配每个 prior box 的 ground truth
+        # 创建 loc_t 和 conf_t 保存真实box的位置和类别
         loc_t = torch.Tensor(num, num_priors, 4)
         conf_t = torch.LongTensor(num, num_priors)
         for idx in range(num):
-            truths = targets[idx][:, :-1].data
-            labels = targets[idx][:, -1].data
-            defaults = priors.data
+            truths = targets[idx][:, :-1].data # ground truth box信息
+            labels = targets[idx][:, -1].data  # ground truth conf信息
+            defaults = priors.data # priors的 box 信息
+            # 匹配 ground truth
             match(self.threshold, truths, defaults, self.variance, labels,
                   loc_t, conf_t, idx)
         if self.use_gpu:
@@ -79,25 +82,39 @@ class MultiBoxLoss(nn.Module):
         loc_t = Variable(loc_t, requires_grad=False)
         conf_t = Variable(conf_t, requires_grad=False)
 
-        pos = conf_t > 0
+        pos = conf_t > 0 # 匹配中所有的正样本mask,shape[b,M]
         num_pos = pos.sum(dim=1, keepdim=True)
 
-        # Localization Loss (Smooth L1)
+        # Localization Loss (Smooth L1) 使用 Smooth L1
         # Shape: [batch,num_priors,4]
         pos_idx = pos.unsqueeze(pos.dim()).expand_as(loc_data)
         loc_p = loc_data[pos_idx].view(-1, 4)
         loc_t = loc_t[pos_idx].view(-1, 4)
         loss_l = F.smooth_l1_loss(loc_p, loc_t, size_average=False)
 
+        '''
+        Target；
+            下面进行hard negative mining
+        过程:
+            1、 针对所有batch的conf，按照置信度误差(预测背景的置信度越小，误差越大)进行降序排列;
+            2、 负样本的label全是背景，那么利用log softmax 计算出logP,
+               logP越大，则背景概率越低,误差越大;
+            3、 选取误差交大的top_k作为负样本，保证正负样本比例接近1:3;
+        '''
+        
         # Compute max conf across batch for hard negative mining
         batch_conf = conf_data.view(-1, self.num_classes)
         loss_c = log_sum_exp(batch_conf) - batch_conf.gather(1, conf_t.view(-1, 1))
 
         # Hard Negative Mining
-        loss_c[pos] = 0  # filter out pos boxes for now
+        loss_c[pos] = 0  # filter out pos boxes for now  # 把正样本排除，剩下的就全是负样本，可以进行抽样
         loss_c = loss_c.view(num, -1)
+        # 两次sort排序，能够得到每个元素在降序排列中的位置idx_rank
         _, loss_idx = loss_c.sort(1, descending=True)
         _, idx_rank = loss_idx.sort(1)
+        
+        # 抽取负样本
+        # 每个batch中正样本的数目，shape[b,1]
         num_pos = pos.long().sum(1, keepdim=True)
         num_neg = torch.clamp(self.negpos_ratio*num_pos, max=pos.size(1)-1)
         neg = idx_rank < num_neg.expand_as(idx_rank)
@@ -105,12 +122,14 @@ class MultiBoxLoss(nn.Module):
         # Confidence Loss Including Positive and Negative Examples
         pos_idx = pos.unsqueeze(2).expand_as(conf_data)
         neg_idx = neg.unsqueeze(2).expand_as(conf_data)
+        # 提取出所有筛选好的正负样本(预测的和真实的)
         conf_p = conf_data[(pos_idx+neg_idx).gt(0)].view(-1, self.num_classes)
         targets_weighted = conf_t[(pos+neg).gt(0)]
+        # 计算conf交叉熵
         loss_c = F.cross_entropy(conf_p, targets_weighted, size_average=False)
 
         # Sum of losses: L(x,c,l,g) = (Lconf(x, c) + αLloc(x,l,g)) / N
-
+        # 正样本个数
         N = num_pos.data.sum()
         loss_l /= N
         loss_c /= N
