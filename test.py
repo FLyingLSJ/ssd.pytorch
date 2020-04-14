@@ -49,7 +49,7 @@ def test_net(save_folder, net, cuda, testset, transform, thresh):
     net: 模型路径
     cuda：是否有 GPU
     testset：数据集
-    transform
+    transform：数据变换
     thresh
     """
     # dump predictions and assoc. ground truth to text file for now
@@ -104,15 +104,18 @@ def test_voc():
     net.load_state_dict(torch.load(args.trained_model))
     net.eval()
     print('Finished loading model!')
-    # load data
+    # load data   'test_mini' 可以替换成 VOC2007/ImageSets/Main/ 文件夹下的 test.txt 文件
     testset = VOCDetection(args.voc_root, [('2007', 'test_mini')], None, VOCAnnotationTransform())
     if args.cuda:
         net = net.cuda()
         cudnn.benchmark = True
     # evaluation
     
-    test_net(args.save_folder, net, args.cuda, testset,
-             BaseTransform(net.size, (104, 117, 123)),
+    test_net(args.save_folder, 
+             net, 
+             args.cuda, 
+             testset,
+             BaseTransform(net.size, (104, 117, 123)), # 这个是均值 (104, 117, 123)
              thresh=args.visual_threshold)
     
     

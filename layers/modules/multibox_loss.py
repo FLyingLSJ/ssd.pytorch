@@ -100,15 +100,15 @@ class MultiBoxLoss(nn.Module):
             2、 负样本的label全是背景，那么利用log softmax 计算出logP,
                logP越大，则背景概率越低,误差越大;
             3、 选取误差交大的top_k作为负样本，保证正负样本比例接近1:3;
-        '''
-        
+        '''        
         # Compute max conf across batch for hard negative mining
         batch_conf = conf_data.view(-1, self.num_classes)
         loss_c = log_sum_exp(batch_conf) - batch_conf.gather(1, conf_t.view(-1, 1))
 
         # Hard Negative Mining
-        loss_c[pos] = 0  # filter out pos boxes for now  # 把正样本排除，剩下的就全是负样本，可以进行抽样
         loss_c = loss_c.view(num, -1)
+        loss_c[pos] = 0  # filter out pos boxes for now  # 把正样本排除，剩下的就全是负样本，可以进行抽样
+        
         # 两次sort排序，能够得到每个元素在降序排列中的位置idx_rank
         _, loss_idx = loss_c.sort(1, descending=True)
         _, idx_rank = loss_idx.sort(1)
@@ -130,7 +130,9 @@ class MultiBoxLoss(nn.Module):
 
         # Sum of losses: L(x,c,l,g) = (Lconf(x, c) + αLloc(x,l,g)) / N
         # 正样本个数
-        N = num_pos.data.sum()
+        N = num_pos.data.sum().double() 
+        loss_l = loss_l.double()
+        loss_c = loss_c.double()
         loss_l /= N
         loss_c /= N
         return loss_l, loss_c
