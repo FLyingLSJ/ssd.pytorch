@@ -76,7 +76,7 @@ if sys.platform.startswith("win"):
 YEAR = '2007'
 devkit_path = args.voc_root + 'VOC' + YEAR
 dataset_mean = (104, 117, 123)
-set_type = 'test_mini' #'test'
+set_type = 'test'
 
 
 class Timer(object):

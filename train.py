@@ -195,6 +195,8 @@ def train():
         # forward
         t0 = time.time()
         out = net(images)
+        
+        print(targets)
         # backprop
         optimizer.zero_grad()
         loss_l, loss_c = criterion(out, targets)

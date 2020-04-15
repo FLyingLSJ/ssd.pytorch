@@ -72,42 +72,51 @@ def match(threshold, truths, priors, variances, labels, loc_t, conf_t, idx):
     """Match each prior box with the ground truth box of the highest jaccard
     overlap, encode the bounding boxes, then return the matched indices
     corresponding to both confidence and location preds.
+        把和每个prior box 有最大的IOU的ground truth box进行匹配，
+        同时，编码包围框，返回匹配的索引，对应的置信度和位置
     Args:
-        threshold: (float) The overlap threshold used when mathing boxes.
-        truths: (tensor) Ground truth boxes, Shape: [num_obj, num_priors].
-        priors: (tensor) Prior boxes from priorbox layers, Shape: [n_priors,4].
+        threshold: (float) The overlap threshold used when mathing boxes. IOU阈值，小于阈值设为 bg
+        truths: (tensor) Ground truth boxes, Shape: [num_obj, num_priors]. ground truth boxes, shape[N,4]
+        priors: (tensor) Prior boxes from priorbox layers, Shape: [n_priors,4].  先验框， shape[M,4]
         variances: (tensor) Variances corresponding to each prior coord,
-            Shape: [num_priors, 4].
-        labels: (tensor) All the class labels for the image, Shape: [num_obj].
-        loc_t: (tensor) Tensor to be filled w/ endcoded location targets.
-        conf_t: (tensor) Tensor to be filled w/ matched indices for conf preds.
-        idx: (int) current batch index
+            Shape: [num_priors, 4].  prior的方差, list(float)
+        labels: (tensor) All the class labels for the image, Shape: [num_obj]. 图片的所有类别，shape[num_obj]
+        loc_t: (tensor) Tensor to be filled w/ endcoded location targets. 用于填充encoded loc 目标张量
+        conf_t: (tensor) Tensor to be filled w/ matched indices for conf preds.  用于填充encoded conf 目标张量
+        idx: (int) current batch index  现在的batch index      
     Return:
         The matched indices corresponding to 1)location and 2)confidence preds.
     """
-    # jaccard index
+    # jaccard index 计算 IoU
     overlaps = jaccard(
-        truths,
-        point_form(priors)
+        truths, 
+        point_form(priors) # Convert prior_boxes to (xmin, ymin, xmax, ymax)
     )
     # (Bipartite Matching)
-    # [1,num_objects] best prior for each ground truth
+    # [1,num_objects] best prior for each ground truth   # [1,num_objects] 和每个ground truth box 交集最大的 prior box
     best_prior_overlap, best_prior_idx = overlaps.max(1, keepdim=True)
-    # [1,num_priors] best ground truth for each prior
+    # [1,num_priors] best ground truth for each prior     [1,num_priors] 和每个prior box 交集最大的 ground truth box
     best_truth_overlap, best_truth_idx = overlaps.max(0, keepdim=True)
-    best_truth_idx.squeeze_(0)
-    best_truth_overlap.squeeze_(0)
-    best_prior_idx.squeeze_(1)
-    best_prior_overlap.squeeze_(1)
+    best_truth_idx.squeeze_(0)           #（M）
+    best_truth_overlap.squeeze_(0)       #（M）
+    best_prior_idx.squeeze_(1)           #（N）
+    best_prior_overlap.squeeze_(1)       #（N）
+    
+    # 保证每个ground truth box 与某一个prior box 匹配，固定值为 2 > threshold
     best_truth_overlap.index_fill_(0, best_prior_idx, 2)  # ensure best prior
+    
     # TODO refactor: index  best_prior_idx with long tensor
-    # ensure every gt matches with its prior of max overlap
+    # ensure every gt matches with its prior of max overlap    
+    # 保证每一个ground truth 匹配它的都是具有最大IOU的prior
+    # 根据 best_prior_dix 锁定 best_truth_idx里面的最大IOU prior
     for j in range(best_prior_idx.size(0)):
-        best_truth_idx[best_prior_idx[j]] = j
-    matches = truths[best_truth_idx]          # Shape: [num_priors,4]
-    conf = labels[best_truth_idx] + 1         # Shape: [num_priors]
-    conf[best_truth_overlap < threshold] = 0  # label as background
+        best_truth_idx[best_prior_idx[j]] = j         
+    matches = truths[best_truth_idx]          # Shape: [num_priors,4] # 提取出所有匹配的ground truth box, Shape: [M,4]  
+    conf = labels[best_truth_idx] + 1         # Shape: [num_priors]  # 提取出所有GT框的类别， Shape:[M]    
+    conf[best_truth_overlap < threshold] = 0  # label as background  # 把 iou < threshold 的框类别设置为 bg,即为0
+    # 编码包围框
     loc = encode(matches, priors, variances)
+    # 保存匹配好的loc和conf到loc_t和conf_t中
     loc_t[idx] = loc    # [num_priors,4] encoded offsets to learn
     conf_t[idx] = conf  # [num_priors] top class label for each prior
 

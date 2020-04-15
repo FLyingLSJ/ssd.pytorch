@@ -1,6 +1,15 @@
 ### 开发环境
 
 - Python3+
+
+```bash
+torch==1.3.0
+opencv-python
+torchvision
+```
+
+
+
 - 训练可视化（安装后运行命令，在浏览器打开`http://localhost:8097` 即可进行可视化）
 
 ```bash
@@ -20,8 +29,8 @@ python -m visdom.server
 
 ```bash
 # 下载 VOC2012数据集
+sh data/scripts/VOC2007.sh
 sh data/scripts/VOC2012.sh
-
 # 下载 COCO 数据集，这个比较大
 sh data/scripts/COCO2014.sh
 
@@ -32,6 +41,15 @@ sh data/scripts/COCO2014.sh
 ### 准备权重文件
 
 也已经为大家准备好了
+
+```bash
+mkdir weights
+cd weights
+wget https://s3.amazonaws.com/amdegroot-models/vgg16_reducedfc.pth
+
+wget https://s3.amazonaws.com/amdegroot-models/ssd300_mAP_77.43_v2.pth
+wget https://s3.amazonaws.com/amdegroot-models/ssd_300_VOC0712.pth
+```
 
 
 

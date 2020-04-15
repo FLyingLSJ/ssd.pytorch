@@ -105,7 +105,7 @@ def test_voc():
     net.eval()
     print('Finished loading model!')
     # load data   'test_mini' 可以替换成 VOC2007/ImageSets/Main/ 文件夹下的 test.txt 文件
-    testset = VOCDetection(args.voc_root, [('2007', 'test_mini')], None, VOCAnnotationTransform())
+    testset = VOCDetection(args.voc_root, [('2007', 'test')], None, VOCAnnotationTransform())
     if args.cuda:
         net = net.cuda()
         cudnn.benchmark = True
