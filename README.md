@@ -1,14 +1,14 @@
-### 开发环境
+### 配置开发环境
+
+```bash
+git clone https://github.com/FLyingLSJ/ssd.pytorch.git
+```
 
 - Python3+
 
 ```bash
-torch==1.3.0
-opencv-python
-torchvision
+pip install -r rerequirements.txt
 ```
-
-
 
 - 训练可视化（安装后运行命令，在浏览器打开`http://localhost:8097` 即可进行可视化）
 
@@ -18,10 +18,6 @@ pip install visdom
 # Start the server (probably in a screen or tmux)
 python -m visdom.server
 ```
-
-
-
-
 
 ### 准备数据集
 
@@ -36,22 +32,11 @@ sh data/scripts/COCO2014.sh
 
 ```
 
-
-
-### 准备权重文件
-
-也已经为大家准备好了
+### 下载权重文件
 
 ```bash
-mkdir weights
-cd weights
-wget https://s3.amazonaws.com/amdegroot-models/vgg16_reducedfc.pth
-
-wget https://s3.amazonaws.com/amdegroot-models/ssd300_mAP_77.43_v2.pth
-wget https://s3.amazonaws.com/amdegroot-models/ssd_300_VOC0712.pth
+sh pretrained_model_download.sh
 ```
-
-
 
 ### 修改配置
 
@@ -59,6 +44,12 @@ wget https://s3.amazonaws.com/amdegroot-models/ssd_300_VOC0712.pth
 
 - （约第 29行）变量 **VOC_ROOT** 将其修改为我们自己本地的 VOC 的路径
 - （约第 98 行 ）修改 **image_sets** 的值为 **[('2007', 'trainval')]** ，因为我们只用 VOC2007 进行训练测试
+
+### 训练
+
+```bash
+python train --cuda False 
+```
 
 
 
@@ -74,10 +65,6 @@ python test.py --cuda False
 ```
 
 - 如果你的电脑上有显卡的话则将 `--cuda` 设置成 True
-
-### 训练
-
-
 
 ### 问题解决
 
