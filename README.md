@@ -7,7 +7,7 @@ git clone https://github.com/FLyingLSJ/ssd.pytorch.git
 - Python3+
 
 ```bash
-pip install -r rerequirements.txt
+pip install -r requirements.txt
 ```
 
 - 训练可视化（安装后运行命令，在浏览器打开`http://localhost:8097` 即可进行可视化）
