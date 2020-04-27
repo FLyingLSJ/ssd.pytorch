@@ -104,7 +104,7 @@ def test_voc():
     net.load_state_dict(torch.load(args.trained_model))
     net.eval()
     print('Finished loading model!')
-    # load data   'test_mini' 可以替换成 VOC2007/ImageSets/Main/ 文件夹下的 test.txt 文件
+    # load data 
     testset = VOCDetection(args.voc_root, [('2007', 'test')], None, VOCAnnotationTransform())
     if args.cuda:
         net = net.cuda()

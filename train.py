@@ -184,8 +184,13 @@ def train():
             adjust_learning_rate(optimizer, args.gamma, step_index)
 
         # load train data
-        images, targets = next(batch_iterator)
-
+        #images, targets = next(batch_iterator)
+        try:
+            images, targets = next(batch_iterator)
+        except StopIteration:
+            batch_iterator=iter(data_loader)
+            images, targets = next(batch_iterator)
+            
         if args.cuda:
             images = Variable(images.cuda())
             targets = [Variable(ann.cuda(), volatile=True) for ann in targets]
@@ -196,7 +201,7 @@ def train():
         t0 = time.time()
         out = net(images)
         
-        print(targets)
+        #print(targets)
         # backprop
         optimizer.zero_grad()
         loss_l, loss_c = criterion(out, targets)

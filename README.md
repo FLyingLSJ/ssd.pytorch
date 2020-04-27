@@ -29,7 +29,6 @@ sh data/scripts/VOC2007.sh
 sh data/scripts/VOC2012.sh
 # 下载 COCO 数据集，这个比较大
 sh data/scripts/COCO2014.sh
-
 ```
 
 ### 下载权重文件
@@ -51,12 +50,10 @@ sh pretrained_model_download.sh
 python train --cuda False 
 ```
 
-
-
 ### 测试
 
 - 检查数据集是否准备好
-- 检测权重文件 'weights/ssd_300_VOC0712.pth' 是否存在
+- 检测权重文件 `weights/ssd_300_VOC0712.pth` 是否存在
 - （可选）在 test.py 大概 108 行的位置：**testset = VOCDetection(args.voc_root, [('2007', 'test_mini')], None, VOCAnnotationTransform())** 修改 test_mini 成自己的文件，当然也可以不修改，我修改的原因是原始的 test.txt 里面有太多图片了，所以我自己建了一个较小的测试文件
 - 运行以下代码，程序会自动对图片进行目标检测，检测后会在生成 eval 文件夹，并在下面生成一个 test1.txt 结果文件和图片
 
